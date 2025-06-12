@@ -10,6 +10,7 @@
         "markdown": false,
         "scminput": false,
         "dart": false,
-    }
+    },
+    "dart.flutterHotReloadOnSave": "all",
     
 }
