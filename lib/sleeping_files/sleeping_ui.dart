@@ -44,7 +44,6 @@ class _SleepingUiState extends State<SleepingUi> {
               ),
             ),
             dialogTheme: DialogThemeData(
-              // Corretto: Usato DialogThemeData e rimossa 'const'
               backgroundColor: Colors
                   .transparent, // Rende il background del dialog trasparente
               shape: RoundedRectangleBorder(
@@ -76,7 +75,8 @@ class _SleepingUiState extends State<SleepingUi> {
         "Orario selezionato: ${SleepCalculator.formatTimeOfDay(picked)}",
         context,
         toastPosition: GFToastPosition.BOTTOM,
-        backgroundColor: GFColors.SUCCESS.withOpacity(0.9),
+        // Colore di successo: Un blu vibrante che si abbina ai bottoni
+        backgroundColor: const Color(0xFF64B5F6).withOpacity(0.9),
         textStyle: GoogleFonts.montserrat(color: GFColors.WHITE, fontSize: 14),
         toastBorderRadius: 10.0,
       );
@@ -89,8 +89,10 @@ class _SleepingUiState extends State<SleepingUi> {
         "Per favore, seleziona un orario di risveglio prima.",
         context,
         toastPosition: GFToastPosition.TOP,
-        backgroundColor: GFColors.DANGER.withOpacity(0.9),
-        textStyle: GoogleFonts.montserrat(color: GFColors.WHITE, fontSize: 14),
+        // Colore di warning: Azzurro chiaro come il colore primario del tema
+        backgroundColor: const Color(0xFFBBDEFB).withOpacity(0.9),
+        // Testo nero per un buon contrasto sullo sfondo azzurro chiaro
+        textStyle: GoogleFonts.montserrat(color: Colors.black, fontSize: 14),
         toastBorderRadius: 10.0,
       );
       return;
@@ -116,8 +118,10 @@ class _SleepingUiState extends State<SleepingUi> {
         "Per favore, seleziona un orario di andare a dormire prima.",
         context,
         toastPosition: GFToastPosition.TOP,
-        backgroundColor: GFColors.DANGER.withOpacity(0.9),
-        textStyle: GoogleFonts.montserrat(color: GFColors.WHITE, fontSize: 14),
+        // Colore di warning: Azzurro chiaro come il colore primario del tema
+        backgroundColor: const Color(0xFFBBDEFB).withOpacity(0.9),
+        // Testo nero per un buon contrasto sullo sfondo azzurro chiaro
+        textStyle: GoogleFonts.montserrat(color: Colors.black, fontSize: 14),
         toastBorderRadius: 10.0,
       );
       return;
@@ -354,6 +358,7 @@ class _SleepingUiState extends State<SleepingUi> {
                                     color: GFColors.WHITE.withOpacity(0.9),
                                     fontWeight: FontWeight.w600,
                                     fontSize: 15,
+                                    letterSpacing: 0.8,
                                   ),
                                 ),
                               ),
@@ -397,6 +402,7 @@ class _SleepingUiState extends State<SleepingUi> {
                                     color: GFColors.WHITE.withOpacity(0.9),
                                     fontWeight: FontWeight.w600,
                                     fontSize: 15,
+                                    letterSpacing: 0.8,
                                   ),
                                 ),
                               ),
