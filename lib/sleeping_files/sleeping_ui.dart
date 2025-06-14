@@ -316,7 +316,12 @@ class _SleepCalculatorScreenState extends State<SleepCalculatorScreen> {
                         _isBedtimeMode
                             ? 'Quando andare a dormire?'
                             : 'Quando svegliarsi?',
-                        style: Theme.of(context).textTheme.headlineSmall,
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
+                              color: _isDarkMode
+                                  ? Colors.blueGrey[300]
+                                  : null, // BlueGrey solo in dark mode
+                            ),
                       ),
                       const SizedBox(height: 16),
                       ElevatedButton(
