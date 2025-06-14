@@ -43,7 +43,7 @@ class _SleepCalculatorScreenState extends State<SleepCalculatorScreen> {
   bool _isBedtimeMode = true;
   bool _isDarkMode = false;
   bool _updateAvailable = false;
-  String _currentVersion = '1.0.0';
+  String _currentVersion = '0.0.1-alpha6';
   String _latestVersion = '';
   String _updateUrl = '';
 
