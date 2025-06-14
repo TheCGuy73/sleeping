@@ -1,664 +1,407 @@
-// File: lib/sleeping_files/sleeping_ui.dart
 import 'package:flutter/material.dart';
-import 'package:getwidget/getwidget.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:sleeping/sleeping_files/sleeping_engine.dart';
-import 'dart:ui';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
-class SleepingUi extends StatefulWidget {
-  const SleepingUi({super.key});
-
-  @override
-  State<SleepingUi> createState() => _SleepingUiState();
+void main() {
+  runApp(const SleepCalculatorApp());
 }
 
-class _SleepingUiState extends State<SleepingUi> {
-  TimeOfDay? _selectedTime;
-  List<TimeOfDay> _bedtimeSuggestions = [];
-  List<TimeOfDay> _wakeUpSuggestions = [];
-  int _calculationMode = 0;
+class SleepCalculatorApp extends StatelessWidget {
+  const SleepCalculatorApp({super.key});
 
-  final String _appVersion = "1.0.0";
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Calcolatore del Sonno',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData.light().copyWith(
+        textTheme: GoogleFonts.montserratTextTheme(Theme.of(context).textTheme),
+        colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.blueGrey),
+      ),
+      darkTheme: ThemeData.dark().copyWith(
+        textTheme: GoogleFonts.montserratTextTheme(Theme.of(context).textTheme),
+        colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.blueGrey),
+      ),
+      home: const SleepCalculatorScreen(),
+    );
+  }
+}
+
+class SleepCalculatorScreen extends StatefulWidget {
+  const SleepCalculatorScreen({super.key});
+
+  @override
+  State<SleepCalculatorScreen> createState() => _SleepCalculatorScreenState();
+}
+
+class _SleepCalculatorScreenState extends State<SleepCalculatorScreen> {
+  DateTime? _selectedTime;
+  List<DateTime> _suggestions = [];
+  bool _isBedtimeMode = true;
+  bool _isDarkMode = false;
+  bool _updateAvailable = false;
+  String _currentVersion = '1.0.0';
+  String _latestVersion = '';
+  String _updateUrl = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAppVersion();
+  }
+
+  Future<void> _loadAppVersion() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    setState(() {
+      _currentVersion = packageInfo.version;
+    });
+  }
+
+  Future<void> _checkForUpdates() async {
+    try {
+      const releasesUrl =
+          'https://raw.githubusercontent.com/tuaccount/turepo/main/releases.json';
+      final response = await http.get(Uri.parse(releasesUrl));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final latest = data['latest'];
+
+        setState(() {
+          _latestVersion = latest['version'];
+          _updateUrl = latest['download_url'];
+          _updateAvailable = _isVersionNewer(_currentVersion, _latestVersion);
+        });
+
+        if (_updateAvailable) {
+          _showUpdateDialog();
+        } else {
+          _showMessage('Hai già la versione più recente');
+        }
+      }
+    } catch (e) {
+      _showMessage('Errore nel controllo aggiornamenti');
+      debugPrint('Update error: $e');
+    }
+  }
+
+  bool _isVersionNewer(String current, String latest) {
+    final currentParts = current.split('.').map(int.parse).toList();
+    final latestParts = latest.split('.').map(int.parse).toList();
+
+    for (int i = 0; i < latestParts.length; i++) {
+      if (i >= currentParts.length) return true;
+      if (latestParts[i] > currentParts[i]) return true;
+      if (latestParts[i] < currentParts[i]) return false;
+    }
+    return false;
+  }
+
+  void _toggleTheme() {
+    setState(() {
+      _isDarkMode = !_isDarkMode;
+    });
+  }
 
   Future<void> _pickTime() async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: _selectedTime ?? TimeOfDay.now(),
+      initialTime: TimeOfDay.now(),
       builder: (context, child) {
         return Theme(
-          data: ThemeData.dark().copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Color(0xFFBBDEFB),
-              onPrimary: Colors.black,
-              surface: Color(0xFF1E293B),
-              onSurface: Colors.white,
-            ),
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF64B5F6),
-              ),
-            ),
-            dialogTheme: DialogThemeData(
-              backgroundColor: Colors.transparent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20.0),
-              ),
-            ),
-          ),
-          child: GlassmorphismContainer(
-            borderRadius: 20.0,
-            padding: const EdgeInsets.all(20.0),
-            child: child!,
-          ),
+          data: _isDarkMode ? ThemeData.dark() : ThemeData.light(),
+          child: child!,
         );
       },
     );
 
-    if (picked != null && picked != _selectedTime) {
-      setState(() {
-        _selectedTime = picked;
-        _resetSuggestions();
-      });
-      _showToast(
-        "Orario selezionato: ${SleepCalculator.formatTimeOfDay(picked)}",
+    if (picked != null) {
+      final now = DateTime.now();
+      final selected = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        picked.hour,
+        picked.minute,
       );
+
+      setState(() {
+        _selectedTime = selected;
+        _suggestions = [];
+      });
     }
   }
 
-  void _resetSuggestions() {
-    _bedtimeSuggestions = [];
-    _wakeUpSuggestions = [];
-    _calculationMode = 0;
-  }
-
-  void _showToast(String message) {
-    GFToast.showToast(
-      message,
-      context,
-      toastPosition: GFToastPosition.BOTTOM,
-      backgroundColor: const Color(0xFF64B5F6).withOpacity(0.9),
-      textStyle: GoogleFonts.montserrat(color: GFColors.WHITE, fontSize: 14),
-      toastBorderRadius: 10.0,
-    );
-  }
-
-  void _toggleBedtimeCalculation() {
+  void _calculateTimes() {
     if (_selectedTime == null) {
-      _showToast("Seleziona un orario di risveglio prima");
+      _showMessage('Seleziona prima un orario');
       return;
     }
 
     setState(() {
-      if (_calculationMode == 1) {
-        _resetSuggestions();
-      } else {
-        _bedtimeSuggestions = SleepCalculator.calculateBedtimeSuggestions(
-          _selectedTime!,
-        );
-        _wakeUpSuggestions = [];
-        _calculationMode = 1;
-      }
+      _suggestions = _isBedtimeMode
+          ? _calculateBedtimes(_selectedTime!)
+          : _calculateWakeUpTimes(_selectedTime!);
     });
   }
 
-  void _toggleWakeUpTimeCalculation() {
-    if (_selectedTime == null) {
-      _showToast("Seleziona un orario di andare a dormire prima");
-      return;
-    }
+  List<DateTime> _calculateBedtimes(DateTime wakeUpTime) {
+    const cycleDuration = 90; // minuti
+    const fallAsleepTime = 15; // minuti
+    const cycles = [4.5, 6, 7.5];
 
-    setState(() {
-      if (_calculationMode == 2) {
-        _resetSuggestions();
-      } else {
-        _wakeUpSuggestions = SleepCalculator.calculateWakeUpTimeSuggestions(
-          _selectedTime!,
-        );
-        _bedtimeSuggestions = [];
-        _calculationMode = 2;
-      }
-    });
+    return cycles.map((cycle) {
+      final totalSleep = Duration(minutes: (cycle * cycleDuration).round());
+      final timeToFallAsleep = Duration(minutes: fallAsleepTime);
+      return wakeUpTime.subtract(totalSleep + timeToFallAsleep);
+    }).toList();
+  }
+
+  List<DateTime> _calculateWakeUpTimes(DateTime bedtime) {
+    const cycleDuration = 90; // minuti
+    const cycles = [4.5, 6, 7.5];
+
+    return cycles.map((cycle) {
+      final totalSleep = Duration(minutes: (cycle * cycleDuration).round());
+      return bedtime.add(totalSleep);
+    }).toList();
+  }
+
+  String _formatTime(DateTime time) {
+    return "${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}";
+  }
+
+  String _formatDuration(DateTime start, DateTime end) {
+    final duration = end.difference(start);
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    return '${hours}h ${minutes}m';
   }
 
   void _showAppInfo() {
     showAboutDialog(
       context: context,
       applicationName: "Calcolatore del Sonno",
-      applicationVersion: _appVersion,
-      applicationIcon: const Icon(
-        Icons.nights_stay,
-        size: 60,
-        color: GFColors.INFO,
-      ),
+      applicationVersion: _currentVersion,
+      applicationIcon: const Icon(Icons.nights_stay, size: 50),
       children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 15.0),
-          child: Text(
-            "Calcola gli orari ideali per dormire/svegliarti basandoti sui cicli di sonno",
-            style: GoogleFonts.roboto(fontSize: 14, color: Colors.black87),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(top: 10.0),
-          child: Text(
-            "Sviluppato con Flutter",
-            style: GoogleFonts.roboto(fontSize: 12, color: Colors.black54),
-          ),
-        ),
-      ],
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: _buildAppBar(),
-      body: Container(
-        decoration: _buildBackgroundDecoration(),
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const SizedBox(height: 80),
-                _buildTitle(),
-                const SizedBox(height: 10),
-                _buildSubtitle(),
-                const SizedBox(height: 40),
-                _buildTimeSelectionButton(),
-                const SizedBox(height: 30),
-                _buildActionButtons(),
-                const SizedBox(height: 30),
-                _buildResultsDisplay(),
-                const SizedBox(height: 30),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  PreferredSizeWidget _buildAppBar() {
-    return PreferredSize(
-      preferredSize: const Size.fromHeight(kToolbarHeight),
-      child: GlassmorphismContainer(
-        borderRadius: 0.0,
-        padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
-        child: GFAppBar(
-          title: _buildPremiumText(
-            "Calcolatore del Sonno",
-            GoogleFonts.poppins(
-              fontWeight: FontWeight.w700,
-              fontSize: 24,
-              letterSpacing: 1.2,
-            ),
-          ),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          centerTitle: true,
-          leading: PopupMenuButton<String>(
-            icon: const Icon(Icons.menu, color: GFColors.WHITE),
-            color: const Color.fromARGB(255, 255, 255, 255).withOpacity(0.9),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10.0),
-              side: BorderSide(
-                color: Colors.white.withOpacity(0.1),
-                width: 1.0,
-              ),
-            ),
-            onSelected: (String result) => _showAppInfo(),
-            itemBuilder: (BuildContext context) => [
-              const PopupMenuItem<String>(
-                value: 'info',
-                child: Text('Informazioni sull\'App'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  BoxDecoration _buildBackgroundDecoration() {
-    return const BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF0F172A)],
-        stops: [0.1, 0.5, 0.9],
-      ),
-    );
-  }
-
-  Widget _buildTitle() {
-    return _buildPremiumText(
-      "Pianifica il Tuo Sonno Perfetto",
-      GoogleFonts.openSans(
-        fontSize: 28,
-        fontWeight: FontWeight.w800,
-        letterSpacing: 1.5,
-      ),
-    );
-  }
-
-  Widget _buildSubtitle() {
-    return _buildPremiumText(
-      "Scegli un orario e lascia che i cicli di sonno ti guidino",
-      GoogleFonts.robotoMono(fontSize: 16, fontStyle: FontStyle.italic),
-    );
-  }
-
-  Widget _buildPremiumText(String text, TextStyle style) {
-    return Text(
-      text,
-      textAlign: TextAlign.center,
-      style: style.copyWith(
-        color: GFColors.WHITE.withOpacity(0.95),
-        shadows: [
-          Shadow(
-            color: Colors.black.withOpacity(0.4),
-            blurRadius: 8,
-            offset: const Offset(1, 1),
-          ),
-          Shadow(
-            color: Colors.white.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(-1, -1),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTimeSelectionButton() {
-    return HoverElevatedGlassButton(
-      width: MediaQuery.of(context).size.width * 0.75,
-      height: 100,
-      onPressed: _pickTime,
-      buttonChild: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.access_time,
-            size: 32,
-            color: GFColors.WHITE.withOpacity(0.95),
-            shadows: _buildIconShadows(),
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10.0),
-            child: _buildPremiumText(
-              _selectedTime == null
-                  ? "Seleziona un Orario"
-                  : "Orario Selezionato: ${SleepCalculator.formatTimeOfDay(_selectedTime!)}",
-              GoogleFonts.poppins(
-                fontWeight: FontWeight.w600,
-                fontSize: 18,
-                letterSpacing: 0.8,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  List<Shadow> _buildIconShadows() {
-    return [
-      Shadow(
-        color: Colors.black.withOpacity(0.5),
-        blurRadius: 6,
-        offset: const Offset(1, 1),
-      ),
-      Shadow(
-        color: Colors.white.withOpacity(0.2),
-        blurRadius: 3,
-        offset: const Offset(-1, -1),
-      ),
-    ];
-  }
-
-  Widget _buildActionButtons() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _buildActionButton(
-          icon: Icons.bedtime_outlined,
-          text: "Quando Andare a Dormire?",
-          onPressed: _toggleBedtimeCalculation,
-        ),
-        const SizedBox(width: 15),
-        _buildActionButton(
-          icon: Icons.wb_sunny_outlined,
-          text: "Quando Svegliarsi?",
-          onPressed: _toggleWakeUpTimeCalculation,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required String text,
-    required VoidCallback onPressed,
-  }) {
-    return Expanded(
-      child: HoverElevatedGlassButton(
-        height: 100,
-        onPressed: onPressed,
-        buttonChild: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 28,
-              color: GFColors.WHITE.withOpacity(0.95),
-              shadows: _buildIconShadows(),
-            ),
-            const SizedBox(height: 5),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 5.0),
-              child: _buildPremiumText(
-                text,
-                GoogleFonts.poppins(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
-                  letterSpacing: 0.8,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildResultsDisplay() {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 600),
-      transitionBuilder: (Widget child, Animation<double> animation) {
-        return ScaleTransition(
-          scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
-          child: FadeTransition(opacity: animation, child: child),
-        );
-      },
-      child: _calculationMode != 0
-          ? _buildSuggestionsList()
-          : _buildPlaceholder(),
-    );
-  }
-
-  Widget _buildSuggestionsList() {
-    final suggestions = _calculationMode == 1
-        ? _bedtimeSuggestions
-        : _wakeUpSuggestions;
-    final title = _calculationMode == 1
-        ? "Suggerimenti per Andare a Dormire (per risvegliarsi a ${SleepCalculator.formatTimeOfDay(_selectedTime!)})"
-        : "Suggerimenti per Svegliarsi (se vai a dormire alle ${SleepCalculator.formatTimeOfDay(_selectedTime!)})";
-
-    return GlassmorphismContainer(
-      key: ValueKey(_calculationMode),
-      borderRadius: 20.0,
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildPremiumText(
-            title,
-            GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          Divider(color: GFColors.LIGHT.withOpacity(0.3)),
-          ...suggestions.asMap().entries.map((entry) {
-            final index = entry.key;
-            final suggestedTime = entry.value;
-            final cycles = SleepCalculator.recommendedCycles[index];
-            final durationText = SleepCalculator.formatDurationFromTimes(
-              _calculationMode == 1 ? suggestedTime : _selectedTime!,
-              _calculationMode == 1 ? _selectedTime! : suggestedTime,
-            );
-
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 5.0),
-              child: Row(
-                children: [
-                  Icon(
-                    _calculationMode == 1
-                        ? Icons.nights_stay
-                        : Icons.brightness_5,
-                    color: GFColors.INFO.withOpacity(0.9),
-                    size: 20,
-                    shadows: _buildIconShadows(),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _buildPremiumText(
-                      "${SleepCalculator.formatTimeOfDay(suggestedTime)} (${cycles.toStringAsFixed(1)} cicli, $durationText)",
-                      GoogleFonts.robotoMono(fontSize: 16),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPlaceholder() {
-    return Column(
-      key: const ValueKey(0),
-      children: [
-        GFLoader(
-          type: GFLoaderType.custom,
-          child: Icon(
-            Icons.nights_stay,
-            size: 80,
-            color: GFColors.INFO,
-            shadows: [
-              Shadow(
-                color: Colors.black.withOpacity(0.5),
-                blurRadius: 10,
-                offset: const Offset(2, 2),
-              ),
-              Shadow(
-                color: Colors.white.withOpacity(0.2),
-                blurRadius: 5,
-                offset: const Offset(-1, -1),
-              ),
-            ],
-          ),
+        const SizedBox(height: 20),
+        Text(
+          "Calcola gli orari ideali per dormire/svegliarti basandoti sui cicli di sonno",
+          style: Theme.of(context).textTheme.bodyMedium,
         ),
         const SizedBox(height: 10),
-        _buildPremiumText(
-          "Preparati a sognare...",
-          GoogleFonts.indieFlower(fontSize: 18, fontStyle: FontStyle.italic),
+        Text(
+          "Sviluppato con Flutter",
+          style: Theme.of(context).textTheme.bodySmall,
         ),
       ],
     );
   }
-}
 
-class GlassmorphismContainer extends StatelessWidget {
-  final Widget child;
-  final double borderRadius;
-  final double blurStrength;
-  final double backgroundOpacity;
-  final double borderOpacity;
-  final List<BoxShadow>? boxShadow;
-  final double? width;
-  final double? height;
-  final EdgeInsetsGeometry? padding;
-  final Color baseBackgroundColor;
-  final Color baseBorderColor;
-
-  const GlassmorphismContainer({
-    super.key,
-    required this.child,
-    this.borderRadius = 16.0,
-    this.blurStrength = 8.0,
-    this.backgroundOpacity = 0.08,
-    this.borderOpacity = 0.1,
-    this.boxShadow,
-    this.width,
-    this.height,
-    this.padding,
-    this.baseBackgroundColor = Colors.white,
-    this.baseBorderColor = Colors.white,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(borderRadius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: blurStrength, sigmaY: blurStrength),
-        child: Container(
-          width: width,
-          height: height,
-          padding: padding,
-          decoration: BoxDecoration(
-            color: baseBackgroundColor.withOpacity(backgroundOpacity),
-            borderRadius: BorderRadius.circular(borderRadius),
-            border: Border.all(
-              color: baseBorderColor.withOpacity(borderOpacity),
-              width: 1.0,
-            ),
-            boxShadow:
-                boxShadow ??
-                [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
-                    blurRadius: 20,
-                    spreadRadius: -5,
-                    offset: const Offset(0, 10),
-                  ),
-                  BoxShadow(
-                    color: Colors.white.withOpacity(0.05),
-                    blurRadius: 15,
-                    spreadRadius: 2,
-                    offset: const Offset(0, -5),
-                  ),
-                ],
-          ),
-          child: child,
+  void _showUpdateDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Aggiornamento Disponibile'),
+        content: Text(
+          'Versione $_latestVersion disponibile. Vuoi scaricarla ora?',
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Più tardi'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _launchUpdateUrl();
+            },
+            child: const Text('Scarica'),
+          ),
+        ],
       ),
     );
   }
-}
 
-class HoverElevatedGlassButton extends StatefulWidget {
-  final Widget buttonChild;
-  final VoidCallback? onPressed;
-  final double borderRadius;
-  final double? width;
-  final double? height;
-  final EdgeInsetsGeometry? padding;
-  final Duration animationDuration;
-  final double hoverScale;
-  final double clickScale;
+  Future<void> _launchUpdateUrl() async {
+    if (await canLaunchUrl(Uri.parse(_updateUrl))) {
+      await launchUrl(Uri.parse(_updateUrl));
+    } else {
+      _showMessage('Impossibile aprire il link di download');
+    }
+  }
 
-  const HoverElevatedGlassButton({
-    super.key,
-    required this.buttonChild,
-    this.onPressed,
-    this.borderRadius = 50.0,
-    this.width,
-    this.height,
-    this.padding,
-    this.animationDuration = const Duration(milliseconds: 200),
-    this.hoverScale = 1.03,
-    this.clickScale = 0.98,
-  });
-
-  @override
-  State<HoverElevatedGlassButton> createState() =>
-      _HoverElevatedGlassButtonState();
-}
-
-class _HoverElevatedGlassButtonState extends State<HoverElevatedGlassButton> {
-  bool _isHovered = false;
-  bool _isPressed = false;
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final double scale = _isPressed
-        ? widget.clickScale
-        : (_isHovered ? widget.hoverScale : 1.0);
-
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) => setState(() => _isPressed = false),
-      onTapCancel: () => setState(() => _isPressed = false),
-      onTap: widget.onPressed,
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        child: AnimatedScale(
-          duration: widget.animationDuration,
-          scale: scale,
-          curve: _isPressed ? Curves.easeInOut : Curves.easeOutBack,
-          child: AnimatedContainer(
-            duration: widget.animationDuration,
-            curve: Curves.easeOut,
-            child: GlassmorphismContainer(
-              borderRadius: widget.borderRadius,
-              width: widget.width,
-              height: widget.height,
-              padding: widget.padding,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(
-                    _isPressed ? 0.4 : (_isHovered ? 0.3 : 0.2),
-                  ),
-                  blurRadius: _isPressed ? 20 : (_isHovered ? 25 : 20),
-                  spreadRadius: -5,
-                  offset: Offset(0, _isPressed ? 5 : 10),
-                ),
-                BoxShadow(
-                  color: Colors.white.withOpacity(
-                    _isPressed ? 0.05 : (_isHovered ? 0.08 : 0.05),
-                  ),
-                  blurRadius: _isPressed ? 15 : (_isHovered ? 20 : 15),
-                  spreadRadius: _isPressed ? 1 : (_isHovered ? 3 : 2),
-                  offset: const Offset(0, -5),
-                ),
-              ],
-              baseBackgroundColor: Colors.white,
-              baseBorderColor: Colors.white,
-              child: ElevatedButton(
-                onPressed: widget.onPressed,
-                style: ButtonStyle(
-                  backgroundColor: MaterialStateProperty.resolveWith<Color?>((
-                    states,
-                  ) {
-                    if (states.contains(MaterialState.pressed)) {
-                      return Colors.white.withOpacity(0.25);
-                    }
-                    if (states.contains(MaterialState.hovered)) {
-                      return Colors.white.withOpacity(0.15);
-                    }
-                    return Colors.transparent;
-                  }),
-                  shadowColor: MaterialStateProperty.all(Colors.transparent),
-                  padding: MaterialStateProperty.all(EdgeInsets.zero),
-                  shape: MaterialStateProperty.all(
-                    RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(widget.borderRadius),
+    return MaterialApp(
+      theme: _isDarkMode ? ThemeData.dark() : ThemeData.light(),
+      home: Scaffold(
+        appBar: AppBar(
+          title: Row(
+            children: [
+              const Text('Calcolatore del Sonno'),
+              const SizedBox(width: 8),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.arrow_drop_down),
+                tooltip: 'Menu',
+                onSelected: (value) {
+                  if (value == 'info') _showAppInfo();
+                  if (value == 'theme') _toggleTheme();
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'info',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Informazioni',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
                     ),
                   ),
-                  overlayColor: MaterialStateProperty.all(Colors.transparent),
-                  elevation: MaterialStateProperty.all(0),
-                ),
-                child: widget.buttonChild,
+                  PopupMenuItem(
+                    value: 'theme',
+                    child: Row(
+                      children: [
+                        Icon(_isDarkMode ? Icons.light_mode : Icons.dark_mode),
+                        const SizedBox(width: 8),
+                        Text(
+                          _isDarkMode ? 'Tema chiaro' : 'Tema scuro',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
+            ],
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.update),
+              onPressed: _checkForUpdates,
+              tooltip: 'Controlla aggiornamenti',
             ),
+            if (_updateAvailable)
+              const Padding(
+                padding: EdgeInsets.only(right: 8.0),
+                child: Icon(Icons.new_releases, color: Colors.yellow),
+              ),
+          ],
+        ),
+        body: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      Text(
+                        _isBedtimeMode
+                            ? 'Quando andare a dormire?'
+                            : 'Quando svegliarsi?',
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _pickTime,
+                        child: Text(
+                          _selectedTime == null
+                              ? 'Seleziona Orario'
+                              : 'Orario: ${_formatTime(_selectedTime!)}',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        setState(() {
+                          _isBedtimeMode = !_isBedtimeMode;
+                          _suggestions = [];
+                        });
+                      },
+                      child: Text(
+                        _isBedtimeMode
+                            ? 'Modalità Sveglia'
+                            : 'Modalità Dormire',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _calculateTimes,
+                      child: const Text('Calcola'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              if (_suggestions.isNotEmpty)
+                Expanded(
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _isBedtimeMode
+                                ? 'Orari per dormire (sveglia alle ${_formatTime(_selectedTime!)})'
+                                : 'Orari per svegliarsi (dormire alle ${_formatTime(_selectedTime!)})',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 8),
+                          Expanded(
+                            child: ListView.builder(
+                              itemCount: _suggestions.length,
+                              itemBuilder: (context, index) {
+                                final time = _suggestions[index];
+                                final cycles = [4.5, 6, 7.5][index];
+                                final duration = _isBedtimeMode
+                                    ? _formatDuration(time, _selectedTime!)
+                                    : _formatDuration(_selectedTime!, time);
+
+                                return ListTile(
+                                  leading: Icon(
+                                    _isBedtimeMode
+                                        ? Icons.nights_stay
+                                        : Icons.wb_sunny,
+                                  ),
+                                  title: Text(_formatTime(time)),
+                                  subtitle: Text('$cycles cicli ($duration)'),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),
