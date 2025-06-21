@@ -9,16 +9,32 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$ReleaseNotes,
     
-    [string]$MinRequiredVersion = "0.0.1-alpha1"
+    [string]$MinRequiredVersion = "0.0.1-alpha1",
+    
+    [switch]$UseReleaseManager
 )
 
 # Colori per output
 $Green = "`e[32m"
 $Yellow = "`e[33m"
 $Red = "`e[31m"
+$Blue = "`e[34m"
 $Reset = "`e[0m"
 
 Write-Host "${Green}=== Creazione Release per Sleeping App ===$Reset" -ForegroundColor Green
+
+# Carica il modulo Release Manager se richiesto
+if ($UseReleaseManager) {
+    $modulePath = "scripts/release_manager.ps1"
+    if (Test-Path $modulePath) {
+        Write-Host "${Blue}Caricamento Release Manager...$Reset" -ForegroundColor Blue
+        . $modulePath
+        Write-Host "${Green}Release Manager caricato!$Reset" -ForegroundColor Green
+    } else {
+        Write-Host "${Yellow}Release Manager non trovato, uso metodo standard$Reset" -ForegroundColor Yellow
+        $UseReleaseManager = $false
+    }
+}
 
 # Funzione per leggere la versione dal pubspec.yaml
 function Read-VersionFromPubspec {
@@ -84,62 +100,80 @@ $releaseApkPath = "$releasesDir/sleeping-$Version.apk"
 Copy-Item $apkPath $releaseApkPath
 Write-Host "${Green}APK copiato in: $releaseApkPath$Reset" -ForegroundColor Green
 
-# Crea o aggiorna releases.json
-$releasesJsonPath = "releases.json"
-$currentDate = Get-Date -Format "yyyy-MM-dd"
-$downloadUrl = "https://github.com/TheCGuy73/sleeping/releases/download/v$Version/sleeping.apk"
-
-# Se il file esiste, leggi il contenuto esistente
-$releasesData = @{}
-if (Test-Path $releasesJsonPath) {
-    $releasesData = Get-Content $releasesJsonPath | ConvertFrom-Json
+# Gestione releases.json
+if ($UseReleaseManager) {
+    Write-Host "${Blue}Usando Release Manager per aggiornare releases.json...$Reset" -ForegroundColor Blue
+    
+    # Usa la funzione del Release Manager
+    Add-Release -Version $Version -BuildNumber $BuildNumber -ReleaseNotes $ReleaseNotes -MinRequiredVersion $MinRequiredVersion
+    
+    # Mostra informazioni sulla release creata
+    Show-ReleaseInfo $Version
 } else {
-    # Crea struttura iniziale
-    $releasesData = @{
-        latest = @{}
-        releases = @()
+    Write-Host "${Blue}Usando metodo standard per aggiornare releases.json...$Reset" -ForegroundColor Blue
+    
+    # Crea o aggiorna releases.json (metodo originale)
+    $releasesJsonPath = "releases.json"
+    $currentDate = Get-Date -Format "yyyy-MM-dd"
+    $downloadUrl = "https://github.com/TheCGuy73/sleeping/releases/download/v$Version/sleeping.apk"
+
+    # Se il file esiste, leggi il contenuto esistente
+    $releasesData = @{}
+    if (Test-Path $releasesJsonPath) {
+        $releasesData = Get-Content $releasesJsonPath | ConvertFrom-Json
+    } else {
+        # Crea struttura iniziale
+        $releasesData = @{
+            latest = @{}
+            releases = @()
+        }
     }
+
+    # Crea la nuova release
+    $newRelease = @{
+        version = $Version
+        build_number = $BuildNumber
+        download_url = $downloadUrl
+        release_notes = $ReleaseNotes
+        release_date = $currentDate
+        min_required_version = $MinRequiredVersion
+    }
+
+    # Aggiorna latest
+    $releasesData.latest = $newRelease
+
+    # Aggiungi alla lista releases (se non esiste già)
+    $existingRelease = $releasesData.releases | Where-Object { $_.version -eq $Version }
+    if (-not $existingRelease) {
+        $releasesData.releases = @($newRelease) + $releasesData.releases
+    } else {
+        # Aggiorna la release esistente
+        $existingIndex = [array]::IndexOf($releasesData.releases, $existingRelease)
+        $releasesData.releases[$existingIndex] = $newRelease
+    }
+
+    # Salva il file JSON
+    $releasesData | ConvertTo-Json -Depth 10 | Set-Content $releasesJsonPath
+    Write-Host "${Green}File releases.json aggiornato$Reset" -ForegroundColor Green
 }
-
-# Crea la nuova release
-$newRelease = @{
-    version = $Version
-    build_number = $BuildNumber
-    download_url = $downloadUrl
-    release_notes = $ReleaseNotes
-    release_date = $currentDate
-    min_required_version = $MinRequiredVersion
-}
-
-# Aggiorna latest
-$releasesData.latest = $newRelease
-
-# Aggiungi alla lista releases (se non esiste già)
-$existingRelease = $releasesData.releases | Where-Object { $_.version -eq $Version }
-if (-not $existingRelease) {
-    $releasesData.releases = @($newRelease) + $releasesData.releases
-} else {
-    # Aggiorna la release esistente
-    $existingIndex = [array]::IndexOf($releasesData.releases, $existingRelease)
-    $releasesData.releases[$existingIndex] = $newRelease
-}
-
-# Salva il file JSON
-$releasesData | ConvertTo-Json -Depth 10 | Set-Content $releasesJsonPath
-Write-Host "${Green}File releases.json aggiornato$Reset" -ForegroundColor Green
 
 # Mostra riepilogo
 Write-Host "${Green}=== Riepilogo Release ===$Reset" -ForegroundColor Green
 Write-Host "Versione: $Version" -ForegroundColor White
 Write-Host "Build Number: $BuildNumber" -ForegroundColor White
 Write-Host "Release Notes: $ReleaseNotes" -ForegroundColor White
-Write-Host "Download URL: $downloadUrl" -ForegroundColor White
 Write-Host "APK Path: $releaseApkPath" -ForegroundColor White
-Write-Host "JSON Path: $releasesJsonPath" -ForegroundColor White
 
 Write-Host "${Yellow}=== Prossimi Passi ===$Reset" -ForegroundColor Yellow
 Write-Host "1. Commit e push di releases.json" -ForegroundColor White
 Write-Host "2. Crea una release su GitHub con il file APK" -ForegroundColor White
 Write-Host "3. Aggiorna la versione in pubspec.yaml per la prossima release" -ForegroundColor White
+
+if ($UseReleaseManager) {
+    Write-Host "${Blue}4. Usa il Release Manager per gestire le release:$Reset" -ForegroundColor Blue
+    Write-Host "   . .\scripts\release_manager.ps1" -ForegroundColor White
+    Write-Host "   Get-Releases" -ForegroundColor White
+    Write-Host "   Show-ReleaseManagerHelp" -ForegroundColor White
+}
 
 Write-Host "${Green}Release creata con successo!$Reset" -ForegroundColor Green 
