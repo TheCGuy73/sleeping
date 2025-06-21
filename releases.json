@@ -2,6 +2,14 @@
     "releases":  [
                      {
                          "min_required_version":  "0.0.1-alpha1",
+                         "version":  "0.0.1-alpha6",
+                         "release_notes":  "Better Theme",
+                         "build_number":  "2",
+                         "download_url":  "https://github.com/TheCGuy73/sleeping/releases/download/v0.0.1-alpha6/sleeping.apk",
+                         "release_date":  "2025-06-21"
+                     },
+                     {
+                         "min_required_version":  "0.0.1-alpha1",
                          "version":  "0.0.1-alpha7",
                          "release_notes":  "Miglioramenti al sistema di temi",
                          "build_number":  "2",
@@ -11,10 +19,10 @@
                  ],
     "latest":  {
                    "min_required_version":  "0.0.1-alpha1",
-                   "version":  "0.0.1-alpha7",
-                   "release_notes":  "Miglioramenti al sistema di temi",
+                   "version":  "0.0.1-alpha6",
+                   "release_notes":  "Better Theme",
                    "build_number":  "2",
-                   "download_url":  "https://github.com/TheCGuy73/sleeping/releases/download/v0.0.1-alpha7/sleeping.apk",
+                   "download_url":  "https://github.com/TheCGuy73/sleeping/releases/download/v0.0.1-alpha6/sleeping.apk",
                    "release_date":  "2025-06-21"
                }
 }

@@ -1,9 +1,9 @@
 # Script per creare una nuova release e aggiornare releases.json
 param(
-    [Parameter(Mandatory=$true)]
+    [Parameter(Mandatory=$false)]
     [string]$Version,
     
-    [Parameter(Mandatory=$true)]
+    [Parameter(Mandatory=$false)]
     [string]$BuildNumber,
     
     [Parameter(Mandatory=$true)]
@@ -20,12 +20,56 @@ $Reset = "`e[0m"
 
 Write-Host "${Green}=== Creazione Release per Sleeping App ===$Reset" -ForegroundColor Green
 
+# Funzione per leggere la versione dal pubspec.yaml
+function Read-VersionFromPubspec {
+    $pubspecPath = "pubspec.yaml"
+    if (Test-Path $pubspecPath) {
+        $content = Get-Content $pubspecPath -Raw
+        if ($content -match 'version:\s*([^\s]+)') {
+            $fullVersion = $matches[1].Trim()
+            Write-Host "${Green}Versione letta da pubspec.yaml: $fullVersion$Reset" -ForegroundColor Green
+            
+            # Separa versione e build number
+            if ($fullVersion -match '^(.+)\+(\d+)$') {
+                $version = $matches[1]
+                $buildNumber = $matches[2]
+                return @{ Version = $version; BuildNumber = $buildNumber }
+            } else {
+                return @{ Version = $fullVersion; BuildNumber = "1" }
+            }
+        }
+    }
+    return $null
+}
+
+# Leggi versione da pubspec.yaml se non specificata
+if (-not $Version -or -not $BuildNumber) {
+    $pubspecVersion = Read-VersionFromPubspec
+    if ($pubspecVersion) {
+        if (-not $Version) { $Version = $pubspecVersion.Version }
+        if (-not $BuildNumber) { $BuildNumber = $pubspecVersion.BuildNumber }
+    } else {
+        Write-Host "${Red}ERRORE: Impossibile leggere la versione da pubspec.yaml$Reset" -ForegroundColor Red
+        Write-Host "${Yellow}Specifica manualmente: -Version 'x.x.x' -BuildNumber 'n'$Reset" -ForegroundColor Yellow
+        exit 1
+    }
+}
+
+Write-Host "${Green}Versione: $Version$Reset" -ForegroundColor Green
+Write-Host "${Green}Build Number: $BuildNumber$Reset" -ForegroundColor Green
+
 # Verifica che il file APK esista
 $apkPath = "build/app/outputs/flutter-apk/sleeping.apk"
 if (-not (Test-Path $apkPath)) {
-    Write-Host "${Red}ERRORE: File APK non trovato in $apkPath$Reset" -ForegroundColor Red
-    Write-Host "${Yellow}Esegui prima: flutter build apk --release$Reset" -ForegroundColor Yellow
-    exit 1
+    # Prova anche con il nome standard di Flutter
+    $apkPath = "build/app/outputs/flutter-apk/app-release.apk"
+    if (-not (Test-Path $apkPath)) {
+        Write-Host "${Red}ERRORE: File APK non trovato$Reset" -ForegroundColor Red
+        Write-Host "${Yellow}Esegui prima: flutter build apk --release$Reset" -ForegroundColor Yellow
+        exit 1
+    } else {
+        Write-Host "${Yellow}Trovato APK con nome standard, verrà rinominato$Reset" -ForegroundColor Yellow
+    }
 }
 
 # Crea la cartella releases se non esiste
@@ -96,6 +140,6 @@ Write-Host "JSON Path: $releasesJsonPath" -ForegroundColor White
 Write-Host "${Yellow}=== Prossimi Passi ===$Reset" -ForegroundColor Yellow
 Write-Host "1. Commit e push di releases.json" -ForegroundColor White
 Write-Host "2. Crea una release su GitHub con il file APK" -ForegroundColor White
-Write-Host "3. Aggiorna la versione in pubspec.yaml" -ForegroundColor White
+Write-Host "3. Aggiorna la versione in pubspec.yaml per la prossima release" -ForegroundColor White
 
 Write-Host "${Green}Release creata con successo!$Reset" -ForegroundColor Green 
