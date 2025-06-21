@@ -19,7 +19,10 @@ class SleepCalculatorApp extends StatelessWidget {
         visualDensity: VisualDensity.adaptivePlatformDensity,
         textTheme: GoogleFonts.montserratTextTheme(Theme.of(context).textTheme),
       ),
-      home: const SleepCalculatorScreen(),
+      home: SleepCalculatorScreen(
+        onThemeToggle: () {},
+        themeMode: ThemeMode.system,
+      ),
     );
   }
 
