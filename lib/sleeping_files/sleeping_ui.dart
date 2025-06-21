@@ -244,6 +244,7 @@ class _SleepCalculatorScreenState extends State<SleepCalculatorScreen> {
 
   Future<void> _checkForUpdates() async {
     try {
+      // Ora che la repo è pubblica, possiamo usare l'URL semplice
       const releasesUrl =
           'https://raw.githubusercontent.com/TheCGuy73/sleeping/master/releases.json';
       final response = await http.get(Uri.parse(releasesUrl));
@@ -266,13 +267,13 @@ class _SleepCalculatorScreenState extends State<SleepCalculatorScreen> {
         } else {
           _showMessage('Hai già la versione più recente');
         }
+      } else if (response.statusCode == 404) {
+        _showMessage('File releases.json non trovato');
       } else {
-        debugPrint('Errore HTTP: ${response.statusCode}');
-        _showMessage('Impossibile controllare gli aggiornamenti');
+        _showMessage('Errore nel controllo aggiornamenti');
       }
     } catch (e) {
       _showMessage('Errore nel controllo aggiornamenti');
-      debugPrint('Update error: $e');
     }
   }
 
