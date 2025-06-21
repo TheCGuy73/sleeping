@@ -3,10 +3,10 @@
                      {
                          "min_required_version":  "0.0.1-alpha1",
                          "version":  "0.0.1-alpha6",
-                         "release_notes":  "First Version",
-                         "build_number":  "1",
+                         "release_notes":  "...",
+                         "build_number":  "3",
                          "download_url":  "https://github.com/TheCGuy73/sleeping/releases/download/v0.0.1-alpha6/sleeping.apk",
-                         "release_date":  "2025-06-21"
+                         "release_date":  "2025-06-22"
                      },
                      {
                          "min_required_version":  "0.0.1-alpha1",
@@ -20,9 +20,9 @@
     "latest":  {
                    "min_required_version":  "0.0.1-alpha1",
                    "version":  "0.0.1-alpha6",
-                   "release_notes":  "First Version",
+                   "release_notes":  "...",
                    "build_number":  "3",
-                   "download_url":  "https://github.com/TheCGuy73/sleeping/releases/download/v0.0.1-alpha6v3/sleeping.apk",
-                   "release_date":  "  2025-06-21"
+                   "download_url":  "https://github.com/TheCGuy73/sleeping/releases/download/v0.0.1-alpha6/sleeping.apk",
+                   "release_date":  "2025-06-22"
                }
 }
