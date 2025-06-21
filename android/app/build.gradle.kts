@@ -34,6 +34,27 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            // Rinomina l'APK di release
+            setProperty("archivesBaseName", "sleeping")
+        }
+        debug {
+            // Rinomina anche l'APK di debug per consistenza
+            setProperty("archivesBaseName", "sleeping")
+        }
+    }
+
+    @Suppress("DEPRECATION") // Suppressing deprecation for applicationVariants
+    applicationVariants.all {
+        if (buildType.name == "release") {
+            outputs.forEach { output ->
+                val outputImpl = output as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+                outputImpl.outputFileName = "sleeping.apk"
+            }
+        } else if (buildType.name == "debug") {
+            outputs.forEach { output ->
+                val outputImpl = output as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+                outputImpl.outputFileName = "sleeping-debug.apk"
+            }
         }
     }
 }

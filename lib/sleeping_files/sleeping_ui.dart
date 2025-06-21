@@ -5,6 +5,42 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+class ThisTheme {
+  static final ThemeData lightTheme = ThemeData.light().copyWith(
+    textTheme: GoogleFonts.montserratTextTheme(ThemeData.light().textTheme),
+    colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.blueGrey),
+    cardTheme: CardTheme(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    ),
+  );
+
+  static final ThemeData darkTheme = ThemeData.dark().copyWith(
+    textTheme: GoogleFonts.montserratTextTheme(ThemeData.dark().textTheme),
+    colorScheme: ColorScheme.fromSwatch(
+        primarySwatch: Colors.blueGrey, brightness: Brightness.dark),
+    cardTheme: CardTheme(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: Colors.grey[850],
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        backgroundColor: Colors.blueGrey[600],
+        foregroundColor: Colors.white,
+      ),
+    ),
+  );
+}
+
 void main() {
   runApp(const SleepCalculatorApp());
 }
@@ -17,14 +53,9 @@ class SleepCalculatorApp extends StatelessWidget {
     return MaterialApp(
       title: 'Calcolatore del Sonno',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.light().copyWith(
-        textTheme: GoogleFonts.montserratTextTheme(Theme.of(context).textTheme),
-        colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.blueGrey),
-      ),
-      darkTheme: ThemeData.dark().copyWith(
-        textTheme: GoogleFonts.montserratTextTheme(Theme.of(context).textTheme),
-        colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.blueGrey),
-      ),
+      theme: ThisTheme.lightTheme,
+      darkTheme: ThisTheme.darkTheme,
+      themeMode: ThemeMode.system,
       home: const SleepCalculatorScreen(),
     );
   }
@@ -41,7 +72,6 @@ class _SleepCalculatorScreenState extends State<SleepCalculatorScreen> {
   DateTime? _selectedTime;
   List<DateTime> _suggestions = [];
   bool _isBedtimeMode = true;
-  bool _isDarkMode = false;
   bool _updateAvailable = false;
   String _currentVersion = '0.0.1-alpha6';
   String _latestVersion = '';
@@ -100,22 +130,10 @@ class _SleepCalculatorScreenState extends State<SleepCalculatorScreen> {
     return false;
   }
 
-  void _toggleTheme() {
-    setState(() {
-      _isDarkMode = !_isDarkMode;
-    });
-  }
-
   Future<void> _pickTime() async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.now(),
-      builder: (context, child) {
-        return Theme(
-          data: _isDarkMode ? ThemeData.dark() : ThemeData.light(),
-          child: child!,
-        );
-      },
     );
 
     if (picked != null) {
@@ -198,6 +216,13 @@ class _SleepCalculatorScreenState extends State<SleepCalculatorScreen> {
           "Sviluppato con Flutter",
           style: Theme.of(context).textTheme.bodySmall,
         ),
+        const SizedBox(height: 10),
+        Text(
+          "Il tema si adatta automaticamente alle impostazioni del sistema",
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            fontStyle: FontStyle.italic,
+          ),
+        ),
       ],
     );
   }
@@ -243,171 +268,152 @@ class _SleepCalculatorScreenState extends State<SleepCalculatorScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      theme: _isDarkMode ? ThemeData.dark() : ThemeData.light(),
-      home: Scaffold(
-        appBar: AppBar(
-          title: Row(
-            children: [
-              const Text('Calcolatore del Sonno'),
-              const SizedBox(width: 8),
-              PopupMenuButton<String>(
-                icon: const Icon(Icons.arrow_drop_down),
-                tooltip: 'Menu',
-                onSelected: (value) {
-                  if (value == 'info') _showAppInfo();
-                  if (value == 'theme') _toggleTheme();
-                },
-                itemBuilder: (context) => [
-                  PopupMenuItem(
-                    value: 'info',
-                    child: Row(
-                      children: [
-                        const Icon(Icons.info_outline),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Informazioni',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'theme',
-                    child: Row(
-                      children: [
-                        Icon(_isDarkMode ? Icons.light_mode : Icons.dark_mode),
-                        const SizedBox(width: 8),
-                        Text(
-                          _isDarkMode ? 'Tema chiaro' : 'Tema scuro',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.update),
-              onPressed: _checkForUpdates,
-              tooltip: 'Controlla aggiornamenti',
-            ),
-            if (_updateAvailable)
-              const Padding(
-                padding: EdgeInsets.only(right: 8.0),
-                child: Icon(Icons.new_releases, color: Colors.yellow),
-              ),
-          ],
-        ),
-        body: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    
+    return Scaffold(
+      appBar: AppBar(
+        title: Row(
+          children: [
+            const Text('Calcolatore del Sonno'),
+            const SizedBox(width: 8),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.arrow_drop_down),
+              tooltip: 'Menu',
+              onSelected: (value) {
+                if (value == 'info') _showAppInfo();
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'info',
+                  child: Row(
                     children: [
+                      const Icon(Icons.info_outline),
+                      const SizedBox(width: 8),
                       Text(
-                        _isBedtimeMode
-                            ? 'Quando andare a dormire?'
-                            : 'Quando svegliarsi?',
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(
-                              color: _isDarkMode
-                                  ? Colors.blueGrey[300]
-                                  : null, // BlueGrey solo in dark mode
-                            ),
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _pickTime,
-                        child: Text(
-                          _selectedTime == null
-                              ? 'Seleziona Orario'
-                              : 'Orario: ${_formatTime(_selectedTime!)}',
-                        ),
+                        'Informazioni',
+                        style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        setState(() {
-                          _isBedtimeMode = !_isBedtimeMode;
-                          _suggestions = [];
-                        });
-                      },
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.update),
+            onPressed: _checkForUpdates,
+            tooltip: 'Controlla aggiornamenti',
+          ),
+          if (_updateAvailable)
+            const Padding(
+              padding: EdgeInsets.only(right: 8.0),
+              child: Icon(Icons.new_releases, color: Colors.yellow),
+            ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    Text(
+                      _isBedtimeMode
+                          ? 'Quando andare a dormire?'
+                          : 'Quando svegliarsi?',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: _pickTime,
                       child: Text(
-                        _isBedtimeMode
-                            ? 'Modalità Sveglia'
-                            : 'Modalità Dormire',
+                        _selectedTime == null
+                            ? 'Seleziona Orario'
+                            : 'Orario: ${_formatTime(_selectedTime!)}',
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _calculateTimes,
-                      child: const Text('Calcola'),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              const SizedBox(height: 16),
-              if (_suggestions.isNotEmpty)
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
                 Expanded(
-                  child: Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _isBedtimeMode
-                                ? 'Orari per dormire (sveglia alle ${_formatTime(_selectedTime!)})'
-                                : 'Orari per svegliarsi (dormire alle ${_formatTime(_selectedTime!)})',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 8),
-                          Expanded(
-                            child: ListView.builder(
-                              itemCount: _suggestions.length,
-                              itemBuilder: (context, index) {
-                                final time = _suggestions[index];
-                                final cycles = [4.5, 6, 7.5][index];
-                                final duration = _isBedtimeMode
-                                    ? _formatDuration(time, _selectedTime!)
-                                    : _formatDuration(_selectedTime!, time);
-
-                                return ListTile(
-                                  leading: Icon(
-                                    _isBedtimeMode
-                                        ? Icons.nights_stay
-                                        : Icons.wb_sunny,
-                                  ),
-                                  title: Text(_formatTime(time)),
-                                  subtitle: Text('$cycles cicli ($duration)'),
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        _isBedtimeMode = !_isBedtimeMode;
+                        _suggestions = [];
+                      });
+                    },
+                    child: Text(
+                      _isBedtimeMode
+                          ? 'Modalità Sveglia'
+                          : 'Modalità Dormire',
                     ),
                   ),
                 ),
-            ],
-          ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _calculateTimes,
+                    child: const Text('Calcola'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (_suggestions.isNotEmpty)
+              Expanded(
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _isBedtimeMode
+                              ? 'Orari per dormire (sveglia alle ${_formatTime(_selectedTime!)})'
+                              : 'Orari per svegliarsi (dormire alle ${_formatTime(_selectedTime!)})',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        Expanded(
+                          child: ListView.builder(
+                            itemCount: _suggestions.length,
+                            itemBuilder: (context, index) {
+                              final time = _suggestions[index];
+                              final cycles = [4.5, 6, 7.5][index];
+                              final duration = _isBedtimeMode
+                                  ? _formatDuration(time, _selectedTime!)
+                                  : _formatDuration(_selectedTime!, time);
+
+                              return ListTile(
+                                leading: Icon(
+                                  _isBedtimeMode
+                                      ? Icons.nights_stay
+                                      : Icons.wb_sunny,
+                                  color: isDarkMode ? Colors.blueGrey[300] : Colors.blueGrey[600],
+                                ),
+                                title: Text(_formatTime(time)),
+                                subtitle: Text('$cycles cicli ($duration)'),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
