@@ -41,26 +41,6 @@ class VersionUtils {
     return '${packageInfo.version}+${packageInfo.buildNumber}';
   }
 
-  /// Confronta due versioni e restituisce true se la prima è più nuova
-  static bool isVersionNewer(String currentVersion, String newVersion) {
-    final currentParts = _parseVersion(currentVersion);
-    final newParts = _parseVersion(newVersion);
-
-    for (int i = 0; i < newParts.length; i++) {
-      if (i >= currentParts.length) return true;
-      if (newParts[i] > currentParts[i]) return true;
-      if (newParts[i] < currentParts[i]) return false;
-    }
-    return false;
-  }
-
-  /// Parsa una stringa di versione in una lista di numeri
-  static List<int> _parseVersion(String version) {
-    // Rimuove eventuali suffissi come -alpha, -beta, ecc.
-    final cleanVersion = version.split('-')[0];
-    return cleanVersion.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-  }
-
   /// Ottiene informazioni dettagliate sulla versione
   static Future<Map<String, String>> getVersionInfo() async {
     final packageInfo = await getPackageInfo();
